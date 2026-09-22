@@ -382,7 +382,7 @@ winner(); draw();
 <p>Compute-optimal scaling tells you how many FLOPs to spend, not how many hours that takes. Getting from FLOPs to hours takes two more numbers, and the standard guess for each one ignores shape.</p>
 
 <ol class="two">
-<li><b>FLOPs per token.</b> The shortcut is six per parameter and it leaves attention out. Attention work scales with layers times width, so the shortcut undercounts the deep model by 30% and the wide one by 13%, a 15% blind spot between shapes.</li>
+<li><b>FLOPs per token.</b> The shortcut is six per parameter and it leaves attention out. Attention work, counted the way PaLM and Chinchilla count it, scales with layers times width, so the shortcut undercounts the deep model by 30% and the wide one by 13%, a 15% blind spot between shapes.</li>
 <li><b>Utilization, or MFU:</b> the fraction of the chip's peak you actually sustain. The stock guess is 40%. Measured, deep reaches 42.0% and wide 48.9%, so wide sustains 16% more of peak. That is on one node with no parallelism in the way. Past one node, tensor parallelism splits width and pipeline parallelism splits depth, each with its own overhead, and the gap starts to depend on the layout as well as the model.</li>
 </ol>
 
@@ -447,7 +447,7 @@ winner(); draw();
 <circle cx="56.0" cy="157.1" r="9" fill="none" stroke="var(--deep)" stroke-width="2"/>
 </svg><div class="cap">How far apart the shortcut's error is for the deepest and widest shape as context grows. Nothing here is measured. It is arithmetic on the model geometry. 2,048 is this study.</div></div>
 
-<p>Kaplan's approximation treats attention as negligible when width is large relative to context. The ratio that measures it, context over twelve times width, is 0.17 for the deep model here, so the neglected term is about a sixth of the total, not nothing. The table below shows the error growing with context and growing fastest for the deep shape: the longer the sequence, the more shape-blind the shortcut becomes.</p>
+<p>Kaplan's approximation treats attention as negligible when width is large relative to context. The ratio that measures it, context over twelve times width, is 0.17 for the deep model here. That is a sixth by Kaplan's own formula, which counts the attention term at half the rate used on this page, and about 30% by the full count. Either way it is not nothing. The table below shows the error growing with context and growing fastest for the deep shape: the longer the sequence, the more shape-blind the shortcut becomes.</p>
 
 <div class="fig"><div class="tablewrap"><table class="fit">
 <thead><tr><th>context</th><th class="n">deep</th><th class="n">balanced</th><th class="n">wide</th><th class="n">gap in the error</th><th class="n">gap in true FLOPs</th></tr></thead>
