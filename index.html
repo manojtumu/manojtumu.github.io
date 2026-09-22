@@ -9,14 +9,12 @@
 <meta name="description" content="Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.">
 <meta property="og:type" content="article"><meta property="og:title" content="Wide or Deep? How Model Shape Sets Your Training Bill"><meta property="og:description" content="Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.">
 <meta property="article:author" content="Manoj Tumu"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="Wide or Deep? How Model Shape Sets Your Training Bill"><meta name="twitter:description" content="Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Wide or Deep? How Model Shape Sets Your Training Bill", "description": "Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.", "url": "https://manojtumu.github.io/", "mainEntityOfPage": "https://manojtumu.github.io/", "author": {"@type": "Person", "name": "Manoj Tumu", "url": "https://manojtumu.com/", "sameAs": ["https://www.linkedin.com/in/manojtumu/", "https://x.com/manoj_tumu"]}, "creator": {"@type": "Person", "name": "Manoj Tumu", "url": "https://manojtumu.com/", "sameAs": ["https://www.linkedin.com/in/manojtumu/", "https://x.com/manoj_tumu"]}, "datePublished": "2026-09", "inLanguage": "en", "about": ["transformer width versus depth", "LLM training cost", "scaling laws", "model FLOPs utilization"]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Wide or Deep? How Model Shape Sets Your Training Bill", "description": "Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.", "url": "https://manojtumu.github.io/", "mainEntityOfPage": "https://manojtumu.github.io/", "author": {"@type": "Person", "name": "Manoj Tumu", "url": "https://manojtumu.com/", "sameAs": ["https://www.linkedin.com/in/manojtumu/", "https://x.com/manoj_tumu"]}, "creator": {"@type": "Person", "name": "Manoj Tumu", "url": "https://manojtumu.com/", "sameAs": ["https://www.linkedin.com/in/manojtumu/", "https://x.com/manoj_tumu"]}, "datePublished": "2026-09-22", "dateModified": "2026-09-22", "inLanguage": "en", "about": ["transformer width versus depth", "LLM training cost", "scaling laws", "model FLOPs utilization"]}</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-:root{--bg:#F4F6F8;--surface:#FFFFFF;--ink:#171B20;--ink-2:#58626D;--ink-3:#8A949E;--rule:#D8DEE4;--grid:#EAEEF2;
+:root{color-scheme:light;--bg:#F4F6F8;--surface:#FFFFFF;--ink:#171B20;--ink-2:#58626D;--ink-3:#8A949E;--rule:#D8DEE4;--grid:#EAEEF2;
  --deep:#4033A8;--conv:#0E8A86;--wide:#C77A00;--code-bg:#E9EDF1;--money:#0B6B2E}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#14181D;--surface:#1B2027;--ink:#E7EBEF;--ink-2:#98A3AE;--ink-3:#6C7783;--rule:#2A323B;--grid:#232A33;
- --deep:#A79EF5;--conv:#1B948C;--wide:#E3A133;--code-bg:#20262E;--money:#5CC98A}}
-:root[data-theme="dark"]{--bg:#14181D;--surface:#1B2027;--ink:#E7EBEF;--ink-2:#98A3AE;--ink-3:#6C7783;--rule:#2A323B;--grid:#232A33;
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14181D;--surface:#1B2027;--ink:#E7EBEF;--ink-2:#98A3AE;--ink-3:#6C7783;--rule:#2A323B;--grid:#232A33;
  --deep:#A79EF5;--conv:#1B948C;--wide:#E3A133;--code-bg:#20262E;--money:#5CC98A}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth} h2{scroll-margin-top:28px}
@@ -108,14 +106,10 @@ footer.col{margin:56px auto 80px;padding-top:18px;border-top:1px solid var(--rul
   var root = document.documentElement, KEY = "shape-theme";
   function get(){ try { return localStorage.getItem(KEY); } catch(e) { return null; } }
   function put(v){ try { localStorage.setItem(KEY, v); } catch(e) {} }
-  // apply a stored override immediately; with none, the CSS media query decides
+  // light unless the reader chose dark here before; the system preference is not consulted
   var saved = get();
-  if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
-  function effective(){
-    var t = root.getAttribute("data-theme");
-    if (t) return t;
-    return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
-  }
+  root.setAttribute("data-theme", saved === "dark" ? "dark" : "light");
+  function effective(){ return root.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
   function paint(){
     var b = document.getElementById("themebtn");
     if (!b) return;
@@ -128,9 +122,6 @@ footer.col{margin:56px auto 80px;padding-top:18px;border-top:1px solid var(--rul
     root.setAttribute("data-theme", next); put(next); paint();
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paint); else paint();
-  if (window.matchMedia) {
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(){ if (!get()) paint(); });
-  }
 })();
 </script>
 <button id="themebtn" class="tbtn" onclick="__toggleTheme()" aria-label="Switch theme">Dark</button>
@@ -138,7 +129,7 @@ footer.col{margin:56px auto 80px;padding-top:18px;border-top:1px solid var(--rul
 <header class="col">
 <h1>Wide or Deep? How Model Shape Sets Your Training Bill</h1>
 <p class="subline">Shape is a trade-off: one shape learns more from each token, another runs more tokens per second, and the bigger edge determines the bill. Here a 20% speed advantage beat a 4% token saving.</p>
-<div class="byline">By <a class="author" href="https://manojtumu.com/" rel="author">Manoj Tumu</a> · <a href="https://www.linkedin.com/in/manojtumu/" rel="me">LinkedIn</a> · <a href="https://x.com/manoj_tumu" rel="me">X</a></div>
+<div class="byline">By <a class="author" href="https://manojtumu.com/" rel="author">Manoj Tumu</a> · <a href="https://www.linkedin.com/in/manojtumu/" rel="me">LinkedIn</a> · <a href="https://x.com/manoj_tumu" rel="me">X</a> · Posted 09/26</div>
 <p class="deck">A transformer's shape is how its parameters are split between depth, the number of layers, and width, the size of each layer. At a fixed parameter budget the two trade off: more layers means narrower layers, and wider layers mean fewer of them.</p>
 </header>
 
