@@ -30,9 +30,9 @@ h2{font-size:1.2rem;font-weight:600;margin:46px 0 12px}
 p{margin:0 0 18px}
 .eyebrow{font-family:Archivo,sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
 .subline{font-family:Archivo,sans-serif;font-size:1rem;font-weight:500;color:var(--ink-2);margin:10px 0 0;text-wrap:balance}
-.deck{font-size:1.18rem;line-height:1.5;margin:20px 0 6px}
+.deck{font-size:1.18rem;line-height:1.5;margin:0 0 6px}
 .byline a{color:inherit} .byline .author{color:var(--ink);font-weight:600;text-decoration:none} .byline a.author:hover{text-decoration:underline}
-.byline{font-family:Archivo,sans-serif;font-size:.8rem;color:var(--ink-2);margin:8px 0 28px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
+.byline{font-family:Archivo,sans-serif;font-size:.8rem;color:var(--ink-2);margin:18px 0 28px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
 a{color:var(--deep)} em{font-style:italic}
 .deep{color:var(--deep)} .conv{color:var(--conv)} .wide{color:var(--wide)}
 .fig{margin:24px 0 28px}
@@ -138,8 +138,8 @@ footer.col{margin:56px auto 80px;padding-top:18px;border-top:1px solid var(--rul
 <header class="col">
 <h1>Wide or Deep? How Model Shape Sets Your Training Bill</h1>
 <p class="subline">Shape is a trade-off: one shape learns more from each token, another runs more tokens per second, and the bigger edge determines the bill. Here a 20% speed advantage beat a 4% token saving.</p>
-<p class="deck">A transformer's shape is how its parameters are split between depth, the number of layers, and width, the size of each layer. At a fixed parameter budget the two trade off: more layers means narrower layers, and wider layers mean fewer of them.</p>
 <div class="byline">By <a class="author" href="https://manojtumu.com/" rel="author">Manoj Tumu</a> · <a href="https://www.linkedin.com/in/manojtumu/" rel="me">LinkedIn</a> · <a href="https://x.com/manoj_tumu" rel="me">X</a></div>
+<p class="deck">A transformer's shape is how its parameters are split between depth, the number of layers, and width, the size of each layer. At a fixed parameter budget the two trade off: more layers means narrower layers, and wider layers mean fewer of them.</p>
 </header>
 
 <main>
