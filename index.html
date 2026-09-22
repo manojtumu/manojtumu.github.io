@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Wide or Deep? | Manoj Tumu</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Manoj Tumu">
+<meta name="description" content="Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.">
+<meta property="og:type" content="article"><meta property="og:title" content="Wide or Deep? How Model Shape Sets Your Training Bill"><meta property="og:description" content="Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.">
+<meta property="article:author" content="Manoj Tumu"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="Wide or Deep? How Model Shape Sets Your Training Bill"><meta name="twitter:description" content="Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Wide or Deep? How Model Shape Sets Your Training Bill", "description": "Three transformer shapes at matched parameters: the one that learns most per token is not the cheapest to train, and the usual budget shortcuts miss it. By Manoj Tumu.", "author": {"@type": "Person", "name": "Manoj Tumu"}, "creator": {"@type": "Person", "name": "Manoj Tumu"}, "datePublished": "2026-09", "inLanguage": "en", "about": ["transformer width versus depth", "LLM training cost", "scaling laws", "model FLOPs utilization"]}</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#F4F6F8;--surface:#FFFFFF;--ink:#171B20;--ink-2:#58626D;--ink-3:#8A949E;--rule:#D8DEE4;--grid:#EAEEF2;
+ --deep:#4033A8;--conv:#0E8A86;--wide:#C77A00;--code-bg:#E9EDF1;--money:#0B6B2E}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#14181D;--surface:#1B2027;--ink:#E7EBEF;--ink-2:#98A3AE;--ink-3:#6C7783;--rule:#2A323B;--grid:#232A33;
+ --deep:#A79EF5;--conv:#1B948C;--wide:#E3A133;--code-bg:#20262E;--money:#5CC98A}}
+:root[data-theme="dark"]{--bg:#14181D;--surface:#1B2027;--ink:#E7EBEF;--ink-2:#98A3AE;--ink-3:#6C7783;--rule:#2A323B;--grid:#232A33;
+ --deep:#A79EF5;--conv:#1B948C;--wide:#E3A133;--code-bg:#20262E;--money:#5CC98A}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth} h2{scroll-margin-top:28px}
+main{padding-bottom:80px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Roboto,"Helvetica Neue",Arial,sans-serif;font-size:18.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.col{max-width:700px;margin:0 auto;padding:0 22px}
+header.col{padding-top:54px}
+h1,h2{font-family:Archivo,"Helvetica Neue",Arial,sans-serif;letter-spacing:-.014em;text-wrap:balance;margin:0}
+h1{font-size:2.3rem;font-weight:700;line-height:1.1;margin-top:8px}
+h2{font-size:1.2rem;font-weight:600;margin:46px 0 12px}
+p{margin:0 0 18px}
+.eyebrow{font-family:Archivo,sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.subline{font-family:Archivo,sans-serif;font-size:1rem;font-weight:500;color:var(--ink-2);margin:10px 0 0;text-wrap:balance}
+.deck{font-size:1.18rem;line-height:1.5;margin:20px 0 6px}
+.byline .author{color:var(--ink);font-weight:600}
+.byline{font-family:Archivo,sans-serif;font-size:.8rem;color:var(--ink-2);margin:8px 0 28px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
+a{color:var(--deep)} em{font-style:italic}
+.deep{color:var(--deep)} .conv{color:var(--conv)} .wide{color:var(--wide)}
+.fig{margin:24px 0 28px}
+.cap{font-family:Archivo,sans-serif;font-size:.92rem;color:var(--ink-2);margin-top:12px;line-height:1.55}
+.wide-out{max-width:900px;margin:26px auto;padding:0 22px}
+.verdicts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.vc{border:1px solid var(--rule);border-radius:9px;background:var(--surface);padding:14px 15px 12px}
+.vt{font-family:Archivo,sans-serif;font-size:.74rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.vs{font-family:Archivo,sans-serif;font-size:.8rem;color:var(--ink-2);margin:2px 0 11px;line-height:1.35;min-height:2.6em}
+.br{display:grid;grid-template-columns:62px 1fr auto;gap:8px;align-items:center;font-family:Archivo,sans-serif;font-size:.76rem;color:var(--ink-2);margin:5px 0}
+.br.st{color:var(--ink);font-weight:600}
+.bt{height:8px;background:var(--grid);border-radius:4px;overflow:hidden} .bt i{display:block;height:100%;border-radius:4px}
+.bv{font-family:"JetBrains Mono",monospace;font-size:.74rem;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+.vp{font-family:Archivo,sans-serif;font-size:.78rem;color:var(--ink-2);margin-top:11px;padding-top:9px;border-top:1px solid var(--grid)} .vp b{color:var(--ink)}
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:9px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--grid);white-space:nowrap} tr:last-child td{border-bottom:0}
+th{font-family:Archivo,sans-serif;font-size:.68rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
+table.fit th{white-space:normal} table.fit th,table.fit td{padding:8px 9px}
+td.n,th.n{text-align:right;font-family:"JetBrains Mono",monospace;font-size:.8rem}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .gr{stroke:var(--grid);stroke-width:1} .chart .ax{stroke:var(--rule);stroke-width:1}
+.chart .tgt{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:3 4}
+.chart .tk{font-family:"JetBrains Mono",monospace;font-size:12px;fill:var(--ink-2)}
+.chart .lab{font-family:Archivo,sans-serif;font-size:12.5px;fill:var(--ink-2)}
+.chart .dl{font-family:"JetBrains Mono",monospace;font-size:12px}
+.chart .halo{paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+.chart .dl.deep{fill:var(--deep)} .chart .dl.conv{fill:var(--conv)} .chart .dl.wide{fill:var(--wide)}
+.chart .ln{fill:none;stroke-width:2.3;stroke-linejoin:round}
+.chart .ln.deep{stroke:var(--deep)} .chart .ln.conv{stroke:var(--conv)} .chart .ln.wide{stroke:var(--wide)}
+.chart .pt{stroke:var(--surface);stroke-width:1.5}
+.chart .pt.deep{fill:var(--deep)} .chart .pt.conv{fill:var(--conv)} .chart .pt.wide{fill:var(--wide)}
+.race{max-width:900px;margin:8px auto 4px;padding:0 22px}
+.rctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;font-family:Archivo,sans-serif;font-size:.8rem;color:var(--ink-2);margin:0 0 12px;padding:9px 13px;border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
+.rctl button{font-family:Archivo,sans-serif;font-weight:600;font-size:.8rem;padding:5px 13px;border-radius:6px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer}
+.rctl button:hover{border-color:var(--ink-3)} .rctl button:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
+.rctl input[type=range]{width:220px;accent-color:var(--deep)}
+.rseg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.rseg button{border:0;border-radius:0;padding:5px 11px;color:var(--ink-2)} .rseg button[aria-pressed=true]{background:var(--code-bg);color:var(--ink)}
+.rfoot{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-top:11px;flex-wrap:wrap}
+.rv{font-family:Archivo,sans-serif;font-size:.86rem;color:var(--ink-2)} .rv b{color:var(--ink)}
+.rwin{display:flex;align-items:flex-end;gap:11px}
+.rwt{font-family:Archivo,sans-serif;font-size:.7rem;color:var(--ink-2);text-align:right;line-height:1.35;padding-bottom:2px}
+.rwt b{font-size:.84rem} .rwt .tie{color:var(--ink-3)}
+.chart .mny{font-family:Archivo,sans-serif;font-size:27px;font-weight:700;fill:var(--money)}
+.chart .mnyl{font-family:Archivo,sans-serif;font-size:10px;fill:var(--ink-3)}
+.chart .mny2{font-family:"JetBrains Mono",monospace;font-size:11px}
+.chart .ph{font-family:Archivo,sans-serif;font-size:8.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;fill:var(--ink-2)} .chart .pn{font-family:Archivo,sans-serif;font-size:11px;font-weight:700} .chart .pd{font-family:Archivo,sans-serif;font-size:9.5px;fill:var(--ink-2)}
+.rkey{display:flex;justify-content:flex-end;align-items:flex-end;gap:20px;margin:0 0 10px}
+.rkt{font-family:Archivo,sans-serif;font-size:.66rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);align-self:center;margin-right:auto}
+.rkg{display:flex;flex-direction:column;align-items:center;gap:5px;font-family:Archivo,sans-serif;font-size:.66rem;color:var(--ink-2);line-height:1.25;text-align:center}
+.rkg b{color:var(--ink);font-weight:600}
+.rvl{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-right:9px}
+.pull{border-left:3px solid var(--deep);padding:2px 0 2px 16px;margin:24px 0;font-size:1.05rem;color:var(--ink)}
+dl.m{display:grid;grid-template-columns:max-content 1fr;gap:9px 18px;font-size:.93rem;margin:0 0 18px}
+dl.m dt{font-family:Archivo,sans-serif;font-size:.74rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);padding-top:4px}
+dl.m dd{margin:0}
+dl.kv{gap:7px 18px;padding:12px 16px;border:1px solid var(--rule);border-radius:9px;background:var(--surface)} dl.kv dd{font-variant-numeric:tabular-nums}
+ol.two{margin:0 0 18px;padding-left:1.3em} ol.two li{margin:0 0 10px} ol.two li::marker{font-family:Archivo,sans-serif;font-weight:600;color:var(--ink-2)}
+footer.col{margin:56px auto 80px;padding-top:18px;border-top:1px solid var(--rule);font-family:Archivo,sans-serif;font-size:.8rem;color:var(--ink-3)}
+.tbtn{position:fixed;top:13px;right:13px;z-index:20;font-family:Archivo,sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border-radius:6px;border:1px solid var(--rule);background:var(--surface);color:var(--ink-2);cursor:pointer}
+.tbtn:hover{color:var(--ink);border-color:var(--ink-3)}
+.tbtn:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
+@media print{.tbtn{display:none}}
+@media (max-width:680px){.tbtn{top:9px;right:9px;padding:5px 10px} .verdicts{grid-template-columns:1fr} h1{font-size:1.8rem} body{font-size:17.5px} .vs{min-height:0}}
+</style>
+<style>img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<script>
+(function(){
+  var root = document.documentElement, KEY = "shape-theme";
+  function get(){ try { return localStorage.getItem(KEY); } catch(e) { return null; } }
+  function put(v){ try { localStorage.setItem(KEY, v); } catch(e) {} }
+  // apply a stored override immediately; with none, the CSS media query decides
+  var saved = get();
+  if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
+  function effective(){
+    var t = root.getAttribute("data-theme");
+    if (t) return t;
+    return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  }
+  function paint(){
+    var b = document.getElementById("themebtn");
+    if (!b) return;
+    var e = effective();
+    b.textContent = (e === "dark") ? "Light" : "Dark";
+    b.setAttribute("aria-label", "Switch to " + ((e === "dark") ? "light" : "dark") + " theme");
+  }
+  window.__toggleTheme = function(){
+    var next = (effective() === "dark") ? "light" : "dark";
+    root.setAttribute("data-theme", next); put(next); paint();
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paint); else paint();
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(){ if (!get()) paint(); });
+  }
+})();
+</script>
+<button id="themebtn" class="tbtn" onclick="__toggleTheme()" aria-label="Switch theme">Dark</button>
+
+<header class="col">
+<h1>Wide or Deep? How Model Shape Sets Your Training Bill</h1>
+<p class="subline">Shape is a trade-off: one shape learns more from each token, another runs more tokens per second, and the bigger edge determines the bill. Here a 20% speed advantage beat a 4% token saving.</p>
+<p class="deck">A transformer's shape is how its parameters are split between depth, the number of layers, and width, the size of each layer. At a fixed parameter budget the two trade off: more layers means narrower layers, and wider layers mean fewer of them.</p>
+<div class="byline">By <span class="author">Manoj Tumu</span></div>
+</header>
+
+<main>
+<div class="col">
+
+<p>Compute budgets are not training budgets. A scaling law says how much compute a target loss needs, not how long the hardware takes to deliver it or what that costs. This study puts both on the same bill. It trains three shapes at the same parameter budget and on the same data, then measures two things separately: how much each shape learns per token, and how quickly the hardware processes those tokens. What happens when the shape that learns more from each token is not the shape that processes tokens fastest?</p>
+
+<p>In these runs the deepest model learns the most per token, but the widest runs 20% faster. That throughput advantage outweighs the token advantage, making the deep model 14% more expensive to train to the same target loss.</p>
+
+<h2>Three metrics, two winners</h2>
+<p>Three shapes matched at roughly 400M block parameters, three seeds each, 8 billion tokens each, learning rate swept per shape. Then the same three models timed on the same single machine that trained them.</p>
+</div>
+
+<div class="wide-out"><div class="verdicts"><div class="vc"><div class="vt">Loss per token</div><div class="vs">billions of tokens to reach 2.85 · fewer is better</div><div class="br st"><span class="bn">deep</span><span class="bt"><i style="width:92.5%;background:var(--deep)"></i></span><span class="bv">5.15B</span></div><div class="br"><span class="bn">balanced</span><span class="bt"><i style="width:100.0%;background:var(--conv)"></i></span><span class="bv">5.57B</span></div><div class="br"><span class="bn">wide</span><span class="bt"><i style="width:96.6%;background:var(--wide)"></i></span><span class="bv">5.38B</span></div><div class="vp">picks <b>deep</b></div></div><div class="vc"><div class="vt">Throughput</div><div class="vs">million tokens per second on one 8×H100 node · more is better</div><div class="br"><span class="bn">deep</span><span class="bt"><i style="width:83.6%;background:var(--deep)"></i></span><span class="bv">0.95M</span></div><div class="br"><span class="bn">balanced</span><span class="bt"><i style="width:96.3%;background:var(--conv)"></i></span><span class="bv">1.09M</span></div><div class="br st"><span class="bn">wide</span><span class="bt"><i style="width:100.0%;background:var(--wide)"></i></span><span class="bv">1.13M</span></div><div class="vp">picks <b>wide</b></div></div><div class="vc"><div class="vt">The bill</div><div class="vs">dollars to reach 2.85 · fewer is better</div><div class="br"><span class="bn">deep</span><span class="bt"><i style="width:100.0%;background:var(--deep)"></i></span><span class="bv">$95.56</span></div><div class="br"><span class="bn">balanced</span><span class="bt"><i style="width:93.9%;background:var(--conv)"></i></span><span class="bv">$89.70</span></div><div class="br st"><span class="bn">wide</span><span class="bt"><i style="width:87.4%;background:var(--wide)"></i></span><span class="bv">$83.48</span></div><div class="vp">picks <b>wide</b></div></div></div>
+<p class="cap col" style="padding:0;max-width:none">Same three models, same cluster, three ways of ranking them. Bars are scaled to the largest value in each panel.</p></div>
+
+<div class="col">
+<p>The chart below shows the same runs on the same cluster three ways. With tokens on the horizontal axis the deep model is ahead. With hours or dollars on it, the wide model is.</p>
+</div>
+
+<section class="race">
+  <div class="rctl">
+    <button id="rplay" aria-label="play or pause">&#9654; Play</button>
+    <label>progress <input id="rt" type="range" min="0" max="1000" value="1000" aria-label="scrubber"></label>
+    <span class="rseg" role="group" aria-label="what the horizontal axis measures">
+      <button data-ax="tok" aria-pressed="true">per token</button><button data-ax="h" aria-pressed="false">per hour</button><button data-ax="usd" aria-pressed="false">per dollar</button></span>
+  </div>
+  <div id="rchart" class="chart"></div>
+  <div class="rfoot"><div id="rverdict" class="rv"></div><div id="rwin" class="rwin"></div></div>
+</section>
+<script>
+const R = {"curves": {"deep": [[0.1311, 4.50878], [0.2621, 3.76828], [0.3932, 3.55738], [0.5243, 3.43535], [0.6554, 3.3543], [0.7864, 3.29699], [0.9175, 3.25223], [1.0486, 3.21926], [1.1796, 3.19143], [1.3107, 3.16504], [1.4418, 3.14512], [1.5729, 3.12579], [1.7039, 3.11006], [1.835, 3.09473], [1.9661, 3.08113], [2.0972, 3.06746], [2.2282, 3.05523], [2.3593, 3.04514], [2.4904, 3.03357], [2.6214, 3.02403], [2.7525, 3.0134], [2.8836, 3.00396], [3.0147, 2.99286], [3.1457, 2.984], [3.2768, 2.97415], [3.4079, 2.96633], [3.5389, 2.95596], [3.67, 2.94738], [3.8011, 2.93842], [3.9322, 2.93057], [4.0632, 2.92054], [4.1943, 2.91098], [4.3254, 2.90273], [4.4564, 2.89382], [4.5875, 2.88541], [4.7186, 2.87705], [4.8497, 2.86879], [4.9807, 2.86119], [5.1118, 2.85286], [5.2429, 2.84481], [5.374, 2.83862], [5.505, 2.8325], [5.6361, 2.82559], [5.7672, 2.82009], [5.8982, 2.81377], [6.0293, 2.80873], [6.1604, 2.8038], [6.2915, 2.79907], [6.4225, 2.79495], [6.5536, 2.79195], [6.6847, 2.78787], [6.8157, 2.78524], [6.9468, 2.78292], [7.0779, 2.78082], [7.209, 2.77885], [7.34, 2.77732], [7.4711, 2.77639], [7.6022, 2.77504], [7.7332, 2.77426], [7.8643, 2.77355], [7.9954, 2.77272], [8.0001, 2.77269]], "conv": [[0.1311, 4.51149], [0.2621, 3.81881], [0.3932, 3.73283], [0.5243, 3.45893], [0.6554, 3.37661], [0.7864, 3.32282], [0.9175, 3.27897], [1.0486, 3.24406], [1.1796, 3.21726], [1.3107, 3.19082], [1.4418, 3.17234], [1.5729, 3.15186], [1.7039, 3.1366], [1.835, 3.11961], [1.9661, 3.10712], [2.0972, 3.09374], [2.2282, 3.08099], [2.3593, 3.07064], [2.4904, 3.05937], [2.6214, 3.04902], [2.7525, 3.0384], [2.8836, 3.02913], [3.0147, 3.01871], [3.1457, 3.00814], [3.2768, 2.99767], [3.4079, 2.98939], [3.5389, 2.97963], [3.67, 2.96969], [3.8011, 2.96038], [3.9322, 2.95273], [4.0632, 2.94228], [4.1943, 2.93278], [4.3254, 2.9247], [4.4564, 2.91536], [4.5875, 2.90625], [4.7186, 2.89791], [4.8497, 2.88962], [4.9807, 2.88223], [5.1118, 2.87341], [5.2429, 2.86621], [5.374, 2.85949], [5.505, 2.85351], [5.6361, 2.84675], [5.7672, 2.84072], [5.8982, 2.83459], [6.0293, 2.82923], [6.1604, 2.82436], [6.2915, 2.82012], [6.4225, 2.81575], [6.5536, 2.81225], [6.6847, 2.80899], [6.8157, 2.80638], [6.9468, 2.80382], [7.0779, 2.80157], [7.209, 2.79951], [7.34, 2.79823], [7.4711, 2.79669], [7.6022, 2.7957], [7.7332, 2.79481], [7.8643, 2.79405], [7.9954, 2.79319], [8.0001, 2.79313]], "wide": [[0.1311, 4.38219], [0.2621, 3.78654], [0.3932, 3.55741], [0.5243, 3.43892], [0.6554, 3.36158], [0.7864, 3.30854], [0.9175, 3.26563], [1.0486, 3.23112], [1.1796, 3.20288], [1.3107, 3.17768], [1.4418, 3.15737], [1.5729, 3.1377], [1.7039, 3.12204], [1.835, 3.10658], [1.9661, 3.0925], [2.0972, 3.07846], [2.2282, 3.06589], [2.3593, 3.05442], [2.4904, 3.0437], [2.6214, 3.03217], [2.7525, 3.02103], [2.8836, 3.01194], [3.0147, 3.00136], [3.1457, 2.99156], [3.2768, 2.98121], [3.4079, 2.9727], [3.5389, 2.96257], [3.67, 2.95383], [3.8011, 2.94512], [3.9322, 2.93676], [4.0632, 2.92718], [4.1943, 2.91829], [4.3254, 2.91013], [4.4564, 2.90165], [4.5875, 2.89297], [4.7186, 2.88603], [4.8497, 2.87818], [4.9807, 2.87102], [5.1118, 2.86385], [5.2429, 2.85633], [5.374, 2.8503], [5.505, 2.84426], [5.6361, 2.83754], [5.7672, 2.8318], [5.8982, 2.8262], [6.0293, 2.82185], [6.1604, 2.81753], [6.2915, 2.81382], [6.4225, 2.81025], [6.5536, 2.80723], [6.6847, 2.80425], [6.8157, 2.80165], [6.9468, 2.79947], [7.0779, 2.79769], [7.209, 2.79594], [7.34, 2.7948], [7.4711, 2.79379], [7.6022, 2.793], [7.7332, 2.79212], [7.8643, 2.79145], [7.9954, 2.79087], [8.0001, 2.79088]]}, "band": {"deep": [[0.1311, 4.49576, 4.52978], [0.2621, 3.75111, 3.78355], [0.3932, 3.5487, 3.567], [0.5243, 3.43262, 3.4397], [0.6554, 3.35096, 3.35916], [0.7864, 3.29337, 3.30152], [0.9175, 3.24757, 3.2588], [1.0486, 3.21489, 3.22149], [1.1796, 3.18815, 3.19592], [1.3107, 3.16124, 3.16937], [1.4418, 3.14173, 3.14683], [1.5729, 3.12304, 3.12786], [1.7039, 3.1055, 3.11458], [1.835, 3.09076, 3.10078], [1.9661, 3.07865, 3.08419], [2.0972, 3.06488, 3.0709], [2.2282, 3.05228, 3.0596], [2.3593, 3.04228, 3.04797], [2.4904, 3.03044, 3.03811], [2.6214, 3.02137, 3.02831], [2.7525, 3.01125, 3.01733], [2.8836, 3.0006, 3.00774], [3.0147, 2.99039, 2.99759], [3.1457, 2.98267, 2.98609], [3.2768, 2.97349, 2.97546], [3.4079, 2.96413, 2.96951], [3.5389, 2.95362, 2.95939], [3.67, 2.94447, 2.9521], [3.8011, 2.93565, 2.94343], [3.9322, 2.92733, 2.93622], [4.0632, 2.91769, 2.92411], [4.1943, 2.90929, 2.91394], [4.3254, 2.90099, 2.90603], [4.4564, 2.89161, 2.89776], [4.5875, 2.88326, 2.88889], [4.7186, 2.8754, 2.87952], [4.8497, 2.86697, 2.87184], [4.9807, 2.85879, 2.86473], [5.1118, 2.85063, 2.85608], [5.2429, 2.84346, 2.84668], [5.374, 2.83757, 2.83933], [5.505, 2.83045, 2.8348], [5.6361, 2.82365, 2.82866], [5.7672, 2.8181, 2.82205], [5.8982, 2.81284, 2.81552], [6.0293, 2.80749, 2.81019], [6.1604, 2.80281, 2.80534], [6.2915, 2.79749, 2.80048], [6.4225, 2.79369, 2.7972], [6.5536, 2.79067, 2.79404], [6.6847, 2.78651, 2.79041], [6.8157, 2.78408, 2.78717], [6.9468, 2.78195, 2.78465], [7.0779, 2.77976, 2.78284], [7.209, 2.77767, 2.78105], [7.34, 2.77586, 2.77965], [7.4711, 2.77488, 2.77862], [7.6022, 2.77344, 2.77764], [7.7332, 2.77259, 2.7769], [7.8643, 2.77207, 2.7758], [7.9954, 2.77125, 2.77496], [8.0001, 2.77135, 2.7751]], "conv": [[0.1311, 4.378, 4.71105], [0.2621, 3.79605, 3.85566], [0.3932, 3.57894, 4.03179], [0.5243, 3.45755, 3.46001], [0.6554, 3.37386, 3.37884], [0.7864, 3.3219, 3.32451], [0.9175, 3.27621, 3.28191], [1.0486, 3.24264, 3.24491], [1.1796, 3.21449, 3.222], [1.3107, 3.1888, 3.19284], [1.4418, 3.1689, 3.17412], [1.5729, 3.14533, 3.15601], [1.7039, 3.13295, 3.13901], [1.835, 3.11709, 3.1223], [1.9661, 3.10485, 3.10985], [2.0972, 3.09031, 3.09566], [2.2282, 3.07929, 3.08333], [2.3593, 3.0677, 3.07245], [2.4904, 3.05759, 3.06128], [2.6214, 3.04754, 3.05117], [2.7525, 3.03563, 3.0406], [2.8836, 3.02635, 3.03132], [3.0147, 3.01601, 3.02118], [3.1457, 3.00531, 3.00996], [3.2768, 2.99377, 3.00123], [3.4079, 2.98676, 2.99082], [3.5389, 2.97664, 2.98292], [3.67, 2.9688, 2.97122], [3.8011, 2.9592, 2.96225], [3.9322, 2.9515, 2.9548], [4.0632, 2.94068, 2.94484], [4.1943, 2.93001, 2.93424], [4.3254, 2.92228, 2.92646], [4.4564, 2.91291, 2.91697], [4.5875, 2.90225, 2.90871], [4.7186, 2.8942, 2.89994], [4.8497, 2.88715, 2.89269], [4.9807, 2.88005, 2.88478], [5.1118, 2.87187, 2.87503], [5.2429, 2.86295, 2.86853], [5.374, 2.85559, 2.86197], [5.505, 2.8509, 2.85546], [5.6361, 2.84449, 2.84845], [5.7672, 2.83796, 2.84274], [5.8982, 2.83184, 2.83641], [6.0293, 2.82648, 2.83141], [6.1604, 2.82185, 2.82603], [6.2915, 2.81743, 2.82219], [6.4225, 2.81321, 2.81704], [6.5536, 2.80986, 2.81348], [6.6847, 2.8068, 2.81044], [6.8157, 2.80363, 2.80803], [6.9468, 2.80125, 2.8056], [7.0779, 2.79875, 2.80351], [7.209, 2.79719, 2.80101], [7.34, 2.79584, 2.79964], [7.4711, 2.79439, 2.79832], [7.6022, 2.7938, 2.79685], [7.7332, 2.79264, 2.79638], [7.8643, 2.79185, 2.79569], [7.9954, 2.79104, 2.79484], [8.0001, 2.79093, 2.79475]], "wide": [[0.1311, 4.34867, 4.42591], [0.2621, 3.78045, 3.79158], [0.3932, 3.55499, 3.5601], [0.5243, 3.43632, 3.44299], [0.6554, 3.35822, 3.36689], [0.7864, 3.30625, 3.31225], [0.9175, 3.26309, 3.27009], [1.0486, 3.22697, 3.23582], [1.1796, 3.19962, 3.20792], [1.3107, 3.17489, 3.18297], [1.4418, 3.15502, 3.16189], [1.5729, 3.13457, 3.14117], [1.7039, 3.1195, 3.12703], [1.835, 3.10336, 3.11207], [1.9661, 3.08948, 3.09592], [2.0972, 3.07546, 3.08222], [2.2282, 3.06295, 3.07056], [2.3593, 3.0525, 3.05701], [2.4904, 3.04049, 3.04805], [2.6214, 3.02725, 3.03783], [2.7525, 3.01862, 3.02534], [2.8836, 3.00986, 3.0157], [3.0147, 2.99897, 3.00483], [3.1457, 2.9893, 2.99558], [3.2768, 2.97951, 2.98421], [3.4079, 2.96974, 2.977], [3.5389, 2.96072, 2.96604], [3.67, 2.9504, 2.95788], [3.8011, 2.94296, 2.94927], [3.9322, 2.93426, 2.94101], [4.0632, 2.92368, 2.93187], [4.1943, 2.91676, 2.92113], [4.3254, 2.90819, 2.913], [4.4564, 2.89866, 2.90593], [4.5875, 2.89122, 2.8962], [4.7186, 2.88451, 2.8884], [4.8497, 2.87637, 2.88101], [4.9807, 2.86922, 2.87408], [5.1118, 2.86121, 2.86714], [5.2429, 2.85545, 2.85744], [5.374, 2.84925, 2.85161], [5.505, 2.84287, 2.84678], [5.6361, 2.83605, 2.84051], [5.7672, 2.83004, 2.83377], [5.8982, 2.82502, 2.82762], [6.0293, 2.82006, 2.82415], [6.1604, 2.81659, 2.81932], [6.2915, 2.81286, 2.81546], [6.4225, 2.80899, 2.81238], [6.5536, 2.8061, 2.80926], [6.6847, 2.80289, 2.80635], [6.8157, 2.80066, 2.80336], [6.9468, 2.79858, 2.80119], [7.0779, 2.79658, 2.79947], [7.209, 2.79474, 2.79813], [7.34, 2.79354, 2.797], [7.4711, 2.79235, 2.79611], [7.6022, 2.79171, 2.79518], [7.7332, 2.79055, 2.79418], [7.8643, 2.79008, 2.79342], [7.9954, 2.78954, 2.79285], [8.0001, 2.78953, 2.79293]]}, "blocks": {"deep": 398, "conv": 396, "wide": 398}, "fin": {"deep": {"tok": 5.1548, "h": 1.5098, "usd": 95.56, "sd": 0.0377}, "conv": {"tok": 5.5718, "h": 1.4171, "usd": 89.7, "sd": 0.0433}, "wide": {"tok": 5.3835, "h": 1.3189, "usd": 83.48, "sd": 0.0307}}, "seedfin": {"deep": [5.1233, 5.1965, 5.1445], "conv": [5.5847, 5.5235, 5.6071], "wide": [5.4176, 5.3749, 5.3581]}, "tps": {"deep": 948384.6227310819, "conv": 1092163.2206987215, "wide": 1133817.9434603038}, "rate": 63.296, "asof": "September 2026", "target": 2.85, "dims": {"deep": [1024, 32], "conv": [1536, 12], "wide": [2048, 8]}};
+const RS = ["deep","conv","wide"], RN = {deep:"deep", conv:"balanced", wide:"wide"};
+const RC = {deep:"var(--deep)", conv:"var(--conv)", wide:"var(--wide)"};
+const AXL = {tok:"billions of training tokens", h:"wall-clock hours on one 8×H100 node", usd:"dollars at this cluster's rate"};
+const el = (t,a)=>{const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+// one series per shape, truncated at the target: the race ends when the last one crosses
+function series(curve, tps){
+  const pts = [];
+  for(const [tok,loss] of curve){
+    const h = tok*1e9/tps/3600;
+    pts.push({tok, h, usd:h*R.rate, loss});
+    if(loss <= R.target) break;
+  }
+  const n = pts.length;
+  if(n>1 && pts[n-1].loss < R.target){                       // land exactly on the line
+    const a=pts[n-2], b=pts[n-1], w=(a.loss-R.target)/(a.loss-b.loss);
+    pts[n-1] = {tok:a.tok+w*(b.tok-a.tok), h:a.h+w*(b.h-a.h), usd:a.usd+w*(b.usd-a.usd), loss:R.target};
+  }
+  return pts;
+}
+const SER = {}, BAND = {};                                   // the mean per shape, and the seed range around it
+for(const s of RS){
+  SER[s] = series(R.curves[s], R.tps[s]);
+  const endTok = SER[s][SER[s].length-1].tok, tps = R.tps[s], nb = R.band[s]||[], b = [];
+  const pt = (tok,lo,hi) => { const h = tok*1e9/tps/3600; return {tok, h, usd:h*R.rate, lo:Math.max(lo,R.target), hi:Math.max(hi,R.target)}; };
+  for(const [tok,lo,hi] of nb){ if(tok > endTok) break; b.push(pt(tok,lo,hi)); }
+  const i = nb.findIndex(q=>q[0]>endTok);
+  if(i>0){ const a=nb[i-1], c=nb[i], w=(endTok-a[0])/(c[0]-a[0]); b.push(pt(endTok, a[1]+w*(c[1]-a[1]), a[2]+w*(c[2]-a[2]))); }
+  BAND[s] = b;
+}
+let ax="tok", frac=1, playing=false, last=null;
+const XMAX = ()=> 1.04*Math.max(...RS.map(s=>SER[s][SER[s].length-1][ax]));
+function draw(){
+  const host=document.getElementById("rchart"); host.innerHTML="";
+  const W=700,H=300,m={l:64,r:118,t:16,b:38}, xmax=XMAX(), now=xmax*frac;
+  const Y0=2.86,Y1=3.55;
+  const X=v=>m.l+v/xmax*(W-m.l-m.r), Y=v=>m.t+(1-(v-Y0)/(Y1-Y0))*(H-m.t-m.b);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":`validation loss against ${AXL[ax]}`});
+  for(let i=0;i<=4;i++){const v=Y0+(Y1-Y0)*i/4;
+    svg.append(el("line",{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),class:"gr"}));
+    const t=el("text",{x:m.l-6,y:Y(v)+3.5,"text-anchor":"end",class:"tk"}); t.textContent=v.toFixed(2); svg.append(t);}
+  for(let i=0;i<=5;i++){const v=xmax*i/5; const t=el("text",{x:X(v),y:H-m.b+16,"text-anchor":"middle",class:"tk"});
+    t.textContent = ax==="tok" ? v.toFixed(1)+"B" : ax==="h" ? v.toFixed(2)+"h" : "$"+Math.round(v); svg.append(t);}
+  svg.append(el("line",{x1:m.l,x2:W-m.r,y1:H-m.b,y2:H-m.b,class:"ax"}));
+  const xl=el("text",{x:(m.l+W-m.r)/2,y:H-4,"text-anchor":"middle",class:"lab"}); xl.textContent=AXL[ax]; svg.append(xl);
+  const ym=(m.t+H-m.b)/2, yl=el("text",{x:14,y:ym,class:"lab","text-anchor":"middle",transform:`rotate(-90 14 ${ym})`}); yl.textContent="validation loss"; svg.append(yl);
+  svg.append(el("line",{x1:m.l,x2:W-m.r,y1:Y(R.target),y2:Y(R.target),class:"tgt"}));
+  const fl=el("text",{x:W-m.r+5,y:Y(R.target)+3.5,class:"lab"}); fl.textContent="target "+R.target.toFixed(2); svg.append(fl);
+  svg.append(el("line",{x1:X(now),x2:X(now),y1:m.t,y2:H-m.b,stroke:"var(--ink-3)","stroke-width":1}));
+  const visible = p => {                                     // the part of a series drawn at this instant
+    const vis=p.filter(q=>q[ax]<=now && q.loss<=Y1);
+    const nx=p.findIndex(q=>q[ax]>now);
+    if(nx>0){const a=p[nx-1],b=p[nx],w=(now-a[ax])/(b[ax]-a[ax]),l=a.loss+w*(b.loss-a.loss); if(l<=Y1) vis.push({[ax]:now,loss:l});}
+    const i0=p.findIndex(q=>q.loss<=Y1);
+    if(i0>0&&vis.length){const a=p[i0-1],b=p[i0],w=(a.loss-Y1)/(a.loss-b.loss),e={[ax]:a[ax]+w*(b[ax]-a[ax]),loss:Y1};
+      if(e[ax]<vis[0][ax]) vis.unshift(e);}
+    return vis;
+  };
+  const path = (vis, s, w, o) => el("path",{d:vis.map((q,i)=>(i?"L":"M")+X(q[ax]).toFixed(1)+" "+Y(q.loss).toFixed(1)).join(" "),
+      fill:"none",stroke:RC[s],"stroke-width":w,opacity:o,"stroke-linejoin":"round"});
+  for(const s of RS){                                        // the seed range, shaded, under each mean
+    const bp=BAND[s], b=bp.filter(q=>q[ax]<=now && q.lo<=Y1), nx=bp.findIndex(q=>q[ax]>now);
+    if(nx>0){ const a=bp[nx-1], c=bp[nx], w=(now-a[ax])/(c[ax]-a[ax]), lo=a.lo+w*(c.lo-a.lo), hi=a.hi+w*(c.hi-a.hi);
+      if(lo<=Y1) b.push({[ax]:now, lo, hi}); }
+    if(b.length>1){
+      const up=b.map((q,i)=>(i?"L":"M")+X(q[ax]).toFixed(1)+" "+Y(Math.min(q.hi,Y1)).toFixed(1)).join(" ");
+      const dn=b.slice().reverse().map(q=>"L"+X(q[ax]).toFixed(1)+" "+Y(q.lo).toFixed(1)).join(" ");
+      svg.append(el("path",{d:up+" "+dn+" Z", fill:RC[s], opacity:.2, stroke:"none"}));
+    }
+  }
+  const at={};
+  for(const s of RS){
+    const p=SER[s], vis=visible(p);
+    if(vis.length>1) svg.append(path(vis,s,2.3,1));                                                                // the mean, on top
+    const head=vis[vis.length-1], end=p[p.length-1];
+    if(head) at[s] = end[ax]<=now ? {loss:end.loss, done:true, x:end[ax]} : {loss:head.loss, done:false};
+    if(at[s] && at[s].done){                                   // one tick per seed where it crossed the target
+      const yt=Y(R.target);
+      for(const v of (R.seedfin[s]||[])){
+        const h=v*1e9/R.tps[s]/3600, xv = ax==="tok" ? v : ax==="h" ? h : h*R.rate;
+        svg.append(el("line",{x1:X(xv).toFixed(1),x2:X(xv).toFixed(1),y1:(yt-8).toFixed(1),y2:(yt+4).toFixed(1),stroke:RC[s],"stroke-width":1.6}));
+      }
+    }
+  }
+  // the key, in the empty top right: the shapes themselves, each with its live figure. Drawn last so it covers the now-line.
+  const P={w:314,h:137,r:W-m.r-6,t:m.t+6}; P.l=P.r-P.w;
+  svg.append(el("rect",{x:P.l,y:P.t,width:P.w,height:P.h,rx:6,fill:"var(--surface)",stroke:"var(--rule)","stroke-width":1}));
+  const hdr=el("text",{x:P.l+10,y:P.t+14,class:"ph"}); hdr.textContent="matched at roughly 400M block parameters"; svg.append(hdr);
+  const hrsNow = ax==="h" ? now : now/R.rate;
+  const lv=el("text",{x:P.l+10,y:P.t+27,class:"mnyl"});
+  const allDone = RS.every(s=>at[s]&&at[s].done);
+  lv.textContent = allDone      ? `spent to reach ${R.target.toFixed(2)}`
+                 : ax==="tok"   ? `spent so far, at ${now.toFixed(2)}B tokens`
+                 : ax==="h"     ? `${hrsNow.toFixed(2)} h elapsed, $${(hrsNow*R.rate).toFixed(0)} per model`
+                 :                `$${now.toFixed(0)} spent per model`;
+  svg.append(lv);
+  const pr=el("text",{x:P.r-10,y:P.t+40,"text-anchor":"end",class:"mnyl"}); pr.textContent="AWS 8×H100 GPU on-demand pricing"; svg.append(pr);   // what the dollars are
+  const costNow = s => Math.min(now, SER[s][SER[s].length-1].tok)*1e9/R.tps[s]/3600*R.rate;
+  const cheap = ax==="tok" ? RS.reduce((a,b)=>costNow(b)<costNow(a)?b:a) : null;
+  RS.forEach((s,i)=>{
+    const cy=P.t+61+i*28, [d,L]=R.dims[s], u=22/32, bw=d/2048*22, bh=.68*u, gp=.32*u, y0=cy+11-(32-L)/2*u, gx=P.l+10+(22-bw)/2;
+    for(let k=0;k<L;k++) svg.append(el("rect",{x:gx.toFixed(1), y:(y0-(k+1)*(bh+gp)+gp).toFixed(2), width:bw.toFixed(1), height:bh.toFixed(2), fill:RC[s]}));
+    const nm=el("text",{x:P.l+42,y:cy-1,class:"pn",fill:RC[s]}); nm.textContent=RN[s]; svg.append(nm);
+    const dm=el("text",{x:P.l+42,y:cy+10,class:"pd"}); dm.textContent=`${d} wide × ${L} layers · ${R.blocks[s]}M block params`; svg.append(dm);
+    const end=SER[s][SER[s].length-1], done=!!(at[s]&&at[s].done), fin=R.fin[s];   // fin: the table's basis, mean of the seeds' crossings
+    let val;
+    if(ax==="tok") val = done ? `$${fin.usd.toFixed(2)} at ${fin.tok.toFixed(2)} ± ${fin.sd.toFixed(2)}B` : `$${costNow(s).toFixed(0)}`;
+    else { const tk=Math.min(hrsNow, end.h)*3600*R.tps[s]/1e9;
+      val = done ? (ax==="h" ? `${fin.h.toFixed(2)} h, $${fin.usd.toFixed(2)}` : `$${fin.usd.toFixed(2)} at ${fin.tok.toFixed(2)} ± ${fin.sd.toFixed(2)}B`) : `${tk.toFixed(2)}B tokens`; }
+    const vt=el("text",{x:P.r-10,y:cy-1,"text-anchor":"end",class:"mny2",fill:"var(--ink)","font-weight":(s===cheap)?700:400}); vt.textContent=val; svg.append(vt);
+  });
+  host.append(svg);
+  const done=RS.filter(s=>at[s]&&at[s].done).sort((a,b)=>SER[a][SER[a].length-1][ax]-SER[b][SER[b].length-1][ax]);
+  const live=RS.filter(s=>at[s]&&!at[s].done).sort((a,b)=>at[a].loss-at[b].loss);
+  const lead = done.length ? RN[done[0]] : (live.length ? RN[live[0]] : "none yet");
+  const v=document.getElementById("rverdict");
+  v.innerHTML = `<span class="rvl">${ax==="tok"?"Fewest tokens so far":"Ahead on the clock"}</span>`
+    + `<b>${lead}</b>`
+    + (done.length ? ` &middot; finished: ${done.map(s=>RN[s]).join(", ")}` : (live.length>1 ? ` &middot; ${RN[live[1]]} behind by ${(at[live[1]].loss-at[live[0]].loss).toFixed(3)} nats` : ""));
+}
+function winner(){
+  const key = s => SER[s][SER[s].length-1][ax==="tok" ? "tok" : ax];
+  const rank = RS.slice().sort((a,b)=>key(a)-key(b));
+  const w = rank[0], gap = (key(rank[1])/key(w)-1)*100;
+  const [d,L] = R.dims[w], u = 2.2, bw = d/2048*32*u, bh = .68*u, gp = .32*u, HH = 32*u;
+  let bars = "";
+  for(let i=0;i<L;i++) bars += `<rect x="${((32*u-bw)/2).toFixed(1)}" y="${(HH-(i+1)*(bh+gp)+gp).toFixed(2)}" width="${bw.toFixed(1)}" height="${bh.toFixed(2)}" fill="${RC[w]}"/>`;
+  document.getElementById("rwin").innerHTML =
+    `<div class="rwt">${ax==="tok" ? "Fewest tokens" : "Cheapest"} to ${R.target.toFixed(2)}<br>`
+    + `<b style="color:${RC[w]}">${RN[w]}</b><br>${d} wide &times; ${L} layers`
+    + (gap < 2 ? `<br><span class="tie">tied with ${RN[rank[1]]}</span>` : "") + `</div>`
+    + `<svg viewBox="0 0 ${(32*u).toFixed(0)} ${HH.toFixed(0)}" width="${(32*u).toFixed(0)}" height="${HH.toFixed(0)}" aria-hidden="true">${bars}</svg>`;
+}
+function step(ts){ if(!playing) return; if(last==null) last=ts; frac=Math.min(1,frac+(ts-last)/1000*0.09); last=ts;
+  document.getElementById("rt").value=Math.round(frac*1000); draw();
+  if(frac>=1){playing=false; document.getElementById("rplay").innerHTML="&#9654; Replay"; return;} requestAnimationFrame(step);}
+document.getElementById("rplay").addEventListener("click",()=>{ if(playing){playing=false;document.getElementById("rplay").innerHTML="&#9654; Play";return;}
+  if(frac>=1) frac=0; playing=true; last=null; document.getElementById("rplay").innerHTML="&#10073;&#10073; Pause"; requestAnimationFrame(step);});
+document.getElementById("rt").addEventListener("input",e=>{playing=false;document.getElementById("rplay").innerHTML="&#9654; Play";frac=e.target.value/1000;draw();});
+for(const b of document.querySelectorAll(".rseg button")) b.addEventListener("click",()=>{
+  ax=b.dataset.ax; for(const o of document.querySelectorAll(".rseg button")) o.setAttribute("aria-pressed", o===b);
+  winner(); draw();});
+winner(); draw();
+</script>
+
+<div class="col">
+<p class="cap" style="margin:22px 0 26px">Same three shapes on the same machine, drawn against tokens, wall-clock hours, or money. The shaded band around each line is the range across its three seeds, and the ticks on the target line mark where each seed crossed it. Nothing about the models or the cluster changes between the three views. Only the unit on the axis does. Curves stop at the target.</p>
+
+<p class="pull">The models here are roughly 400M parameters, which may look small. Small runs are what scaling laws are for: their whole purpose is to predict what happens at far more compute from what happens at less, and the effect of shape on loss is part of what Kaplan fitted. The loss side of this comparison should carry to much larger models. The speed side is what changes, and it changes toward shape mattering more: past one node, choosing a shape becomes a parallelism problem (see <a href="#takeaways">What to take from it</a>).</p>
+
+<p>With three seeds per shape, every deep run reached the target before every wide run, and every wide run before every balanced run. For scale, the gap between deep and wide is <b>about six times the seed spread</b>, whether measured in tokens to target or in loss at equal tokens. A gap that size cannot be put down to run-to-run variation. How closely the three shapes are matched is shown below, and the loss comparison rests on it.</p>
+
+<div class="fig"><div class="tablewrap"><table class="fit">
+<thead><tr><th>shape</th><th class="n">width×layers</th><th class="n">blocks<a href="#fn-blocks" style="text-decoration:none">*</a></th><th class="n">attention</th><th class="n">embedding</th><th class="n">total</th></tr></thead>
+<tbody><tr><td><b class="deep">deep</b></td><td class="n">1024×32</td><td class="n"><b>398.5M</b></td><td class="n">134.2M</td><td class="n">51.5M</td><td class="n">450.0M</td></tr><tr><td><b class="conv">balanced</b></td><td class="n">1536×12</td><td class="n"><b>396.4M</b></td><td class="n">113.2M</td><td class="n">77.3M</td><td class="n">473.6M</td></tr><tr><td><b class="wide">wide</b></td><td class="n">2048×8</td><td class="n"><b>398.5M</b></td><td class="n">134.2M</td><td class="n">103.0M</td><td class="n">501.5M</td></tr></tbody></table></div>
+<div class="cap">Blocks, attention plus feed-forward, are matched, exactly for deep and wide. The tied embedding table is not.</div></div>
+<p class="cap" id="fn-blocks" style="margin:-12px 0 30px;padding-top:12px;border-top:1px solid var(--rule)">* Block parameters are the attention and feed-forward weights, the count <a href="https://arxiv.org/abs/2001.08361">Kaplan's</a> scaling laws use. The tied embedding table is left out because at a fixed vocabulary it grows with width and cannot be matched alongside the blocks, and because Kaplan's data suggest it buys less loss than block parameters do, though that came from one setup and need not hold everywhere. Counting the table, the models are 450M, 474M and 501M. <b>The extra parameters sit in the wide model, the shape that loses on loss per token, so the exclusion did not manufacture the ordering.</b></p>
+
+<h2>Why the bill disagrees</h2>
+<p>Loss falls fast early and slowly late, so near the end a small difference in loss is a large difference in tokens. That is how a loss gap under half a percent becomes a token gap you can see on the bill. But the token gap is still smaller than the speed gap, and the speed gap decides it.</p>
+
+<div class="fig"><dl class="m kv">
+<dt>Exchange rate</dt><dd>near the target, 1% of loss is worth about 12% of tokens</dd>
+<dt>Loss gap</dt><dd>0.39% at equal tokens, read where deep reaches 2.85</dd>
+<dt>Token gap</dt><dd>0.39% × 12 ≈ 4.7% implied, 4.4% measured</dd>
+<dt>Speed gap</dt><dd>20%, wide over deep</dd>
+<dt>Bill</dt><dd>the speed gap wins, so deep costs 14% more</dd>
+</dl>
+<div class="cap">Both loss figures are read at the same point on the curve. The 0.7% spread quoted at the top is the end of the run, after the schedule has annealed, and is not the point that sets the bill.</div></div>
+
+<p>The whole inversion is one of those two gaps beating the other, which is why measuring only one of them gets the answer wrong.</p>
+
+<p>Both halves of this have been reported before, separately. <a href="https://arxiv.org/abs/2001.08361">Kaplan and colleagues</a> found that loss changes only a few percent across width-to-depth ratios at a fixed block parameter count, and <a href="https://arxiv.org/abs/2006.12467">Levine and colleagues</a> find the best ratio drifting wider as models grow. Hardware studies and vendor guidance (<a href="https://arxiv.org/abs/2401.14489">Anthony and colleagues</a> and <a href="https://developer.nvidia.com/blog/ai-model-co-design-hardware-friendly-llm-design/">NVIDIA</a>) report large throughput differences between shapes. On one bill, a small loss effect meets a large speed effect, and here the speed effect wins.</p>
+
+<p>Why is the wide model faster? The gap is 20%. Arithmetic explains 2.7% of it and utilization the rest, 16.4%. Attention scales with layers times width, and deep has twice that product, but wide's wider logits matmul costs it nearly as much back, so deep ends up doing only 2.7% more arithmetic per token. Utilization is the larger term because the memory-bound parts of a layer, the normalizations, residual additions and activations, also scale with layers times width and run far below matrix-multiply speed, and deep launches about four times as many kernels per step. Deep's 1024-wide matrices also tile less efficiently on an H100 than 2048-wide ones. That last effect could shrink at larger widths. The memory-traffic one travels to any accelerator.</p>
+
+<p>The same comparison across the full usable range of targets:</p>
+</div>
+
+<div class="wide-out"><div class="fig chart"><svg viewBox="0 0 700 290" role="img" aria-label="Dollars to reach a target loss, for each shape, across the usable range of targets">
+<line x1="54" x2="588" y1="252.0" y2="252.0" class="gr"/><text x="48" y="255.5" text-anchor="end" class="tk">$0</text>
+<line x1="54" x2="588" y1="214.5" y2="214.5" class="gr"/><text x="48" y="218.0" text-anchor="end" class="tk">$25</text>
+<line x1="54" x2="588" y1="176.9" y2="176.9" class="gr"/><text x="48" y="180.4" text-anchor="end" class="tk">$50</text>
+<line x1="54" x2="588" y1="139.4" y2="139.4" class="gr"/><text x="48" y="142.9" text-anchor="end" class="tk">$75</text>
+<line x1="54" x2="588" y1="101.9" y2="101.9" class="gr"/><text x="48" y="105.4" text-anchor="end" class="tk">$100</text>
+<line x1="54" x2="588" y1="64.4" y2="64.4" class="gr"/><text x="48" y="67.9" text-anchor="end" class="tk">$125</text>
+<line x1="54" x2="588" y1="26.8" y2="26.8" class="gr"/><text x="48" y="30.3" text-anchor="end" class="tk">$150</text>
+<text x="54.0" y="268" text-anchor="middle" class="tk">3.10</text>
+<text x="132.5" y="268" text-anchor="middle" class="tk">3.05</text>
+<text x="211.1" y="268" text-anchor="middle" class="tk">3.00</text>
+<text x="289.6" y="268" text-anchor="middle" class="tk">2.95</text>
+<text x="368.1" y="268" text-anchor="middle" class="tk">2.90</text>
+<text x="446.6" y="268" text-anchor="middle" class="tk">2.85</text>
+<text x="525.2" y="268" text-anchor="middle" class="tk">2.80</text>
+<line x1="54" x2="588" y1="252" y2="252" class="ax"/>
+<text x="321" y="286" text-anchor="middle" class="lab">target validation loss (harder to the right)</text>
+<text x="8" y="12" class="lab">cost to reach it</text>
+<defs><pattern id="tailhatch" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--ink-3)" stroke-width="1.1" opacity=".55"/></pattern></defs>
+<rect x="526.0" y="16" width="62.0" height="236.0" fill="var(--rule)" opacity=".5"/>
+<rect x="526.0" y="16" width="62.0" height="236.0" fill="url(#tailhatch)"/>
+<line x1="526.0" x2="526.0" y1="16" y2="252" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="588.0" y="12" text-anchor="end" class="lab">learning-rate anneal, below 2.80</text>
+<path d="M62.3 200.9 L83.6 197.3 L105.1 193.6 L124.3 190.0 L140.2 186.3 L158.3 182.7 L173.3 179.0 L190.0 175.4 L204.8 171.8 L222.3 168.1 L236.2 164.5 L251.7 160.8 L263.9 157.2 L280.2 153.5 L293.7 149.9 L307.8 146.2 L320.1 142.6 L335.9 138.9 L350.9 135.3 L363.8 131.6 L377.8 128.0 L391.0 124.3 L404.2 120.7 L417.1 117.0 L429.1 113.4 L442.1 109.7 L454.8 106.1 L464.5 102.4 L474.1 98.8 L485.0 95.1 L493.6 91.5 L503.5 87.9 L511.5 84.2 L519.2 80.6" class="ln deep"/>
+<path d="M519.2 80.6 L526.6 76.9 L533.1 73.3 L537.8 69.6 L544.2 66.0 L548.4 62.3 L552.0 58.7 L555.3 55.0 L558.4 51.4 L560.8 47.7 L562.3 44.1 L564.4 40.4 L565.6 36.8 L566.7 33.1 L568.0 29.5 L568.1 29.4" class="ln deep" stroke-dasharray="3 3" opacity=".55"/>
+<path d="M63.8 201.3 L83.9 198.2 L100.1 195.0 L117.8 191.8 L134.1 188.6 L150.7 185.5 L165.3 182.3 L181.7 179.1 L198.3 176.0 L214.7 172.8 L227.7 169.6 L243.1 166.5 L258.7 163.3 L273.3 160.1 L285.3 157.0 L301.7 153.8 L316.6 150.6 L329.3 147.5 L344.0 144.3 L358.3 141.1 L371.4 138.0 L384.4 134.8 L396.0 131.6 L409.9 128.5 L421.2 125.3 L431.7 122.1 L441.1 119.0 L451.8 115.8 L461.2 112.6 L470.9 109.5 L479.3 106.3 L486.9 103.1 L493.6 100.0 L500.4 96.8 L505.9 93.6 L511.1 90.5 L515.2 87.3 L519.2 84.1 L522.7 81.0 L526.0 77.8" class="ln conv"/>
+<path d="M526.0 77.8 L526.0 77.8 L528.0 74.6 L530.4 71.5 L531.9 68.3 L533.3 65.1 L534.5 61.9 L535.9 58.8 L536.0 58.7" class="ln conv" stroke-dasharray="3 3" opacity=".55"/>
+<path d="M65.8 206.2 L87.8 203.2 L107.6 200.1 L125.6 197.1 L142.4 194.0 L160.5 191.0 L178.0 187.9 L192.3 184.9 L208.9 181.8 L224.3 178.8 L240.6 175.7 L253.9 172.7 L269.8 169.6 L283.6 166.6 L297.3 163.5 L310.4 160.5 L325.4 157.4 L339.4 154.4 L352.2 151.3 L365.5 148.3 L379.2 145.2 L390.1 142.2 L402.4 139.1 L413.6 136.1 L424.9 133.0 L436.7 130.0 L446.2 126.9 L455.7 123.9 L466.2 120.8 L475.2 117.8 L484.0 114.7 L490.9 111.6 L497.6 108.6 L503.5 105.5 L509.1 102.5 L513.8 99.4 L518.5 96.4 L522.6 93.3" class="ln wide"/>
+<path d="M522.6 93.3 L526.0 90.3 L528.8 87.2 L531.6 84.2 L533.3 81.1 L534.9 78.1 L536.2 75.0 L537.6 72.0 L538.6 68.9 L539.5 65.9 L539.5 65.8" class="ln wide" stroke-dasharray="3 3" opacity=".55"/>
+<text x="595" y="32.9" class="dl deep">deep</text>
+<text x="595" y="62.2" class="dl conv">balanced</text>
+<text x="595" y="75.2" class="dl wide">wide</text>
+<line x1="446.6" x2="446.6" y1="16" y2="252" class="tgt"/>
+</svg>
+<p class="cap">Cost to reach each target loss, for all three shapes, read off the same curves. The deep model is the most expensive everywhere in the usable range. The hatched band covers targets below 2.80, where the target stops being measurable: the last shape to arrive is inside the final tenth of its learning-rate schedule, where the rate has decayed toward zero, the curve has gone flat, and a token count there is mostly noise. Curves are dashed inside it.</p></div></div>
+
+<div class="col">
+<h2>The back-of-envelope mistakes people make</h2>
+<p>Compute-optimal scaling tells you how many FLOPs to spend, not how many hours that takes. Getting from FLOPs to hours takes two more numbers, and the standard guess for each one ignores shape.</p>
+
+<ol class="two">
+<li><b>FLOPs per token.</b> The shortcut is six per parameter and it leaves attention out. Attention work scales with layers times width, so the shortcut undercounts the deep model by 30% and the wide one by 13%, a 15% blind spot between shapes.</li>
+<li><b>Utilization, or MFU:</b> the fraction of the chip's peak you actually sustain. The stock guess is 40%. Measured, deep reaches 42.0% and wide 48.9%, so wide sustains 16% more of peak. That is on one node with no parallelism in the way. Past one node, tensor parallelism splits width and pipeline parallelism splits depth, each with its own overhead, and the gap starts to depend on the layout as well as the model.</li>
+</ol>
+
+<p>Both guesses are wrong by a different amount for each shape, and both are wrong in the wide model's favor. The FLOP shortcut skips attention, and the deep model does twice the attention work, so its cost is undercounted the most. The 40% utilization guess is close for the deep model but well under what the wide one actually reaches. A budget built on those two numbers therefore predicts the deep run 24% too fast, the balanced one 2% too fast and the wide one 7% too slow. Two of the three land near the budget because their errors nearly cancel, not because the budget accounted for them. Same formula, three shapes, a 33% spread it cannot see. The correction needs no loss measurements.</p>
+
+<div class="fig chart"><svg viewBox="0 0 700 215" role="img" aria-label="Actual training time divided by the time a budget of six FLOPs per parameter at 40 percent utilization predicts, for each shape">
+<text x="96" y="16" class="lab">Actual training time as a multiple of the budgeted time, one budget for all three shapes</text>
+<rect x="170.9" y="42" width="339.3" height="127" fill="var(--grid)" opacity=".6"/>
+<text x="510.2" y="30" text-anchor="end" class="lab">33% apart on the same budget</text>
+<line x1="140.0" x2="140.0" y1="44" y2="169" class="gr"/><text x="140.0" y="185" text-anchor="middle" class="tk">0.9×</text>
+<line x1="250.0" x2="250.0" y1="44" y2="169" class="gr"/><text x="250.0" y="185" text-anchor="middle" class="tk">1.0×</text>
+<line x1="360.0" x2="360.0" y1="44" y2="169" class="gr"/><text x="360.0" y="185" text-anchor="middle" class="tk">1.1×</text>
+<line x1="470.0" x2="470.0" y1="44" y2="169" class="gr"/><text x="470.0" y="185" text-anchor="middle" class="tk">1.2×</text>
+<line x1="580.0" x2="580.0" y1="44" y2="169" class="gr"/><text x="580.0" y="185" text-anchor="middle" class="tk">1.3×</text>
+<line x1="250.0" x2="250.0" y1="36" y2="169" class="ax" stroke-width="1.6"/>
+<text x="250.0" y="30" text-anchor="middle" class="lab">budget = 1.0×</text>
+<line x1="250.0" x2="510.2" y1="64.8" y2="64.8" stroke="var(--deep)" stroke-width="3" stroke-linecap="round"/>
+<circle cx="578.1" cy="64.8" r="5.5" fill="var(--surface)" stroke="var(--deep)" stroke-width="2.2"/>
+<circle cx="510.2" cy="64.8" r="6" fill="var(--deep)"/>
+<text x="84" y="69.3" text-anchor="end" class="lab">deep</text>
+<text x="690" y="69.3" text-anchor="end" class="dl deep">+24%</text>
+<line x1="250.0" x2="272.1" y1="106.5" y2="106.5" stroke="var(--conv)" stroke-width="3" stroke-linecap="round"/>
+<circle cx="425.3" cy="106.5" r="5.5" fill="var(--surface)" stroke="var(--conv)" stroke-width="2.2"/>
+<circle cx="272.1" cy="106.5" r="6" fill="var(--conv)"/>
+<text x="84" y="111.0" text-anchor="end" class="lab">balanced</text>
+<text x="690" y="111.0" text-anchor="end" class="dl conv">+2%</text>
+<line x1="250.0" x2="170.9" y1="148.2" y2="148.2" stroke="var(--wide)" stroke-width="3" stroke-linecap="round"/>
+<circle cx="397.2" cy="148.2" r="5.5" fill="var(--surface)" stroke="var(--wide)" stroke-width="2.2"/>
+<circle cx="170.9" cy="148.2" r="6" fill="var(--wide)"/>
+<text x="84" y="152.7" text-anchor="end" class="lab">wide</text>
+<text x="690" y="152.7" text-anchor="end" class="dl wide">-7%</text>
+<circle cx="102" cy="206" r="5" fill="var(--ink-2)"/><text x="112" y="210" class="lab">actual</text>
+<circle cx="182" cy="206" r="4.5" fill="var(--surface)" stroke="var(--ink-2)" stroke-width="2"/><text x="192" y="210" class="lab">FLOP correction alone</text>
+</svg><div class="cap">What a <b>budget of six FLOPs per parameter at 40% utilization</b> predicts against what happened, for each shape. The vertical line is the budget, one number for all three shapes. The filled dot is the actual time. The hollow dot is where the FLOP correction alone would put it. Balanced and wide land near the line because the budget's two errors nearly cancel for them. Deep lands 24% past it. A budget that gives three shapes one number cannot rank them.</div></div>
+
+<div class="fig chart"><svg viewBox="0 0 700 235" role="img" aria-label="How much more the six FLOPs per parameter shortcut understates the deep shape than the wide one, as context length grows">
+<text x="56" y="16" class="lab">How shape-blind the 6N shortcut is, deep against wide</text>
+<line x1="56" x2="670" y1="177.0" y2="177.0" class="gr"/><text x="48" y="181.0" text-anchor="end" class="tk">0%</text>
+<line x1="56" x2="670" y1="142.8" y2="142.8" class="gr"/><text x="48" y="146.8" text-anchor="end" class="tk">25%</text>
+<line x1="56" x2="670" y1="108.5" y2="108.5" class="gr"/><text x="48" y="112.5" text-anchor="end" class="tk">50%</text>
+<line x1="56" x2="670" y1="74.2" y2="74.2" class="gr"/><text x="48" y="78.2" text-anchor="end" class="tk">75%</text>
+<line x1="56" x2="670" y1="40.0" y2="40.0" class="gr"/><text x="48" y="44.0" text-anchor="end" class="tk">100%</text>
+<line x1="56" x2="670" y1="177" y2="177" class="ax"/>
+<text x="56.0" y="194" text-anchor="middle" class="tk">2k</text>
+<text x="209.5" y="194" text-anchor="middle" class="tk">4k</text>
+<text x="363.0" y="194" text-anchor="middle" class="tk">8k</text>
+<text x="516.5" y="194" text-anchor="middle" class="tk">16k</text>
+<text x="670.0" y="194" text-anchor="middle" class="tk">32k</text>
+<text x="56.0" y="210" text-anchor="middle" class="lab">this study</text>
+<text x="363" y="229" text-anchor="middle" class="lab">context length</text>
+<path d="M56.0 157.1 L209.5 141.5 L363.0 118.3 L516.5 89.9 L670.0 62.2" class="ln" stroke="var(--ink)"/>
+<circle cx="56.0" cy="157.1" r="4.5" fill="var(--ink)" class="pt"/>
+<text x="56.0" y="146.1" text-anchor="middle" class="dl halo">15%</text>
+<circle cx="209.5" cy="141.5" r="4.5" fill="var(--ink)" class="pt"/>
+<text x="209.5" y="130.5" text-anchor="middle" class="dl halo">26%</text>
+<circle cx="363.0" cy="118.3" r="4.5" fill="var(--ink)" class="pt"/>
+<text x="363.0" y="107.3" text-anchor="middle" class="dl halo">43%</text>
+<circle cx="516.5" cy="89.9" r="4.5" fill="var(--ink)" class="pt"/>
+<text x="516.5" y="78.9" text-anchor="middle" class="dl halo">64%</text>
+<circle cx="670.0" cy="62.2" r="4.5" fill="var(--ink)" class="pt"/>
+<text x="670.0" y="51.2" text-anchor="middle" class="dl halo">84%</text>
+<circle cx="56.0" cy="157.1" r="9" fill="none" stroke="var(--deep)" stroke-width="2"/>
+</svg><div class="cap">How far apart the shortcut's error is for the deepest and widest shape as context grows. Nothing here is measured. It is arithmetic on the model geometry. 2,048 is this study.</div></div>
+
+<p>Kaplan's approximation treats attention as negligible when width is large relative to context. The ratio that measures it, context over twelve times width, is 0.17 for the deep model here, so the neglected term is about a sixth of the total, not nothing. The table below shows the error growing with context and growing fastest for the deep shape: the longer the sequence, the more shape-blind the shortcut becomes.</p>
+
+<div class="fig"><div class="tablewrap"><table class="fit">
+<thead><tr><th>context</th><th class="n">deep</th><th class="n">balanced</th><th class="n">wide</th><th class="n">gap in the error</th><th class="n">gap in true FLOPs</th></tr></thead>
+<tbody><tr><td class="n">2,048</td><td class="n">1.30×</td><td class="n">1.16×</td><td class="n">1.13×</td><td class="n">15%</td><td class="n">2.7%</td></tr><tr><td class="n">8,192</td><td class="n">2.19×</td><td class="n">1.64×</td><td class="n">1.54×</td><td class="n">43%</td><td class="n">28%</td></tr><tr><td class="n">32,768</td><td class="n">5.77×</td><td class="n">3.55×</td><td class="n">3.14×</td><td class="n">84%</td><td class="n">65%</td></tr></tbody></table></div>
+<div class="cap">How much six FLOPs per parameter understates cost per token, and how far apart that error is for deep and wide. Pure arithmetic, 6N against 6N + 12·L·d·context, checkable against any config in a minute. Each ratio is that shape's true FLOPs over its own 6N, and the 6N baselines differ because wide's embedding table is larger, so the ratios do not compare work directly. The last column does.</div></div>
+
+<div class="fig"><div class="tablewrap"><table>
+<thead><tr><th>shape</th><th class="n">width×layers</th><th class="n">block params</th><th class="n">final loss</th><th class="n">tokens to 2.85</th><th class="n">tok/s</th><th class="n">MFU</th><th class="n">time</th><th class="n">cost</th></tr></thead>
+<tbody><tr><td><b class="deep">deep</b></td><td class="n">1024×32</td><td class="n">398M</td><td class="n">2.773 ± 0.002</td><td class="n">5.15 ± 0.04B</td><td class="n">0.95M</td><td class="n">42.0%</td><td class="n">1.51 ± 0.01 h</td><td class="n">$95.56</td></tr><tr><td><b class="conv">balanced</b></td><td class="n">1536×12</td><td class="n">396M</td><td class="n">2.793 ± 0.002</td><td class="n">5.57 ± 0.04B</td><td class="n">1.09M</td><td class="n">45.5%</td><td class="n">1.42 ± 0.01 h</td><td class="n">$89.70</td></tr><tr><td><b class="wide">wide</b></td><td class="n">2048×8</td><td class="n">398M</td><td class="n">2.791 ± 0.002</td><td class="n">5.38 ± 0.03B</td><td class="n">1.13M</td><td class="n">48.9%</td><td class="n">1.32 ± 0.01 h</td><td class="n">$83.48</td></tr></tbody></table></div>
+<div class="cap">All results. Losses and token counts carry one standard deviation across three seeds. Utilization is against the H100 datasheet peak. Throughput is the mean of three timed repeats, spread under 3%.</div></div>
+
+<h2 id="takeaways">What to take from it</h2>
+
+<p>A parameter-constrained model can learn more from every token and still cost more to train, because shape sets both the tokens a run needs and the rate the hardware delivers them, and a budget that tracks only one of those is incomplete. Here the wide shape is cheaper. At another scale, context length or target loss the balance can move. What decides it is the cost of reaching the target, which neither loss per token nor throughput gives on its own.</p>
+
+<p>The back-of-the-envelope estimates get worse as models grow. The shortcut's blind spot between these two shapes is 15% at 2k context and 84% at 32k, by arithmetic alone. Past one node the same thing happens to utilization. <b>Tensor parallelism splits width and pipeline parallelism splits depth</b>, each with its own communication cost, so the rate at which the hardware delivers tokens depends on the shape in ways a flat guess cannot express. At that scale the parallelism plan stops being a problem for performance engineers to solve after the shape is chosen. It becomes part of the formula that decides how the model scales and what model architecture to choose.</p>
+
+<h2>What this does not settle</h2>
+
+<dl class="m">
+<dt>Experimental scope</dt><dd>One model size, one node, three shapes, three seeds, with learning rates from a 1B-token sweep that may not be optimal at 8B. A more principled way to set them at scale would be <a href="https://arxiv.org/abs/2203.03466">μP</a>, which transfers a learning rate tuned on a small proxy model to larger ones instead of re-sweeping. The point is that the flip exists, not which shape is best for any configuration, including this one.</dd>
+<dt>Architectural confounds</dt><dd>Blocks are matched but two things are not. The tied embedding table grows with width, so wide carries 103M embedding parameters to deep's 52M and more parameters in total. And training in bf16 with no fp32 master copy freezes the RMSNorm gains at 1.0, which handicaps deep, the shape with the most norm layers. The first cuts in the result's favor: wide carried the extra parameters, and the extra work per token they cost, and still won on throughput. The second cuts against it: a deep model without the handicap would learn a little more per token and close some of the bill gap. Only a little, since the next linear layer absorbs the missing scale and no expressive capacity is lost.</dd>
+</dl>
+
+<h2>Method</h2>
+
+<dl class="m">
+<dt>Models</dt><dd>Three decoder-only transformers at roughly 400M block parameters: deep 1024×32, balanced 1536×12, wide 2048×8. Head dimension 64, multi-head attention, gated feed-forward, so a block is 4d² + 3·d·ffn. Context 2,048, vocabulary 50,304, tied embeddings.</dd>
+<dt>Training</dt><dd>8B tokens per run, three seeds per shape, global batch 128 sequences, AdamW with a cosine schedule, bf16, replicated data parallelism on one 8×H100 node with <code>torch.compile</code>.</dd>
+<dt>Data</dt><dd>Batches are keyed on seed and step only, so every shape sees identical data.</dd>
+<dt>Learning rates</dt><dd>From a shared six-rate grid at 1B tokens: 1.25e-03 deep, 1.12e-03 balanced, 8.60e-04 wide.</dd>
+<dt>Throughput</dt><dd>40 timed steps after 10 warmup, three repeats per shape.</dd>
+<dt>Cost</dt><dd>SageMaker on-demand training on one ml.p5.48xlarge in us-west-2 at $63.30 an hour, the September 2026 price from the AWS Pricing API.</dd>
+<dt>Target</dt><dd>2.85, chosen where all three curves still have slope.</dd>
+<dt>Code</dt><dd>The code and the run journals are at <a href="https://github.com/manojtumu/wide-or-deep">github.com/manojtumu/wide-or-deep</a>, MIT licensed.</dd>
+</dl>
+
+</div>
+</main>
+
+
+</body>
+</html>
