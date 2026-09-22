@@ -267,7 +267,7 @@ function draw(){
                  : ax==="h"     ? `${hrsNow.toFixed(2)} h elapsed, $${(hrsNow*R.rate).toFixed(0)} per model`
                  :                `$${now.toFixed(0)} spent per model`;
   svg.append(lv);
-  const pr=el("text",{x:P.r-10,y:P.t+40,"text-anchor":"end",class:"mnyl"}); pr.textContent="AWS 8×H100 GPU on-demand pricing"; svg.append(pr);   // what the dollars are
+  const pr=el("text",{x:P.r-10,y:P.t+40,"text-anchor":"end",class:"mnyl"}); pr.textContent="AWS SageMaker 8×H100, on-demand"; svg.append(pr);   // what the dollars are
   const costNow = s => Math.min(now, SER[s][SER[s].length-1].tok)*1e9/R.tps[s]/3600*R.rate;
   const cheap = ax==="tok" ? RS.reduce((a,b)=>costNow(b)<costNow(a)?b:a) : null;
   RS.forEach((s,i)=>{
